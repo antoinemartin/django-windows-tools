@@ -36,6 +36,8 @@ import sys
 import re
 from optparse import OptionParser
 from django.core.management.base import BaseCommand, CommandError
+from django.template.loader import get_template
+from django.template import Context
 from django.conf import settings
 from optparse import make_option
 import subprocess
@@ -46,13 +48,22 @@ class Command(BaseCommand):
 
     If the root path is not specified, the command will take the
     root directory of the project.
+    
+    Don't forget to run this command as Administrator
     '''
         
-    CONFIGURATION_TEMPLATE = '''/+"[fullPath='{python_interpreter}',arguments='{script} winfcgi --pythonpath={project_dir}',maxInstances='{maxInstances}',idleTimeout='{idleTimeout}',activityTimeout='{activityTimeout}',requestTimeout='{requestTimeout}',instanceMaxRequests='{instanceMaxRequests}',protocol='NamedPipe',flushNamedPipe='False',monitorChangesTo='{monitorChangesTo}']"'''
+    CONFIGURATION_TEMPLATE = '''/+[fullPath='{python_interpreter}',arguments='{script} winfcgi --pythonpath={project_dir}',maxInstances='{maxInstances}',idleTimeout='{idleTimeout}',activityTimeout='{activityTimeout}',requestTimeout='{requestTimeout}',instanceMaxRequests='{instanceMaxRequests}',protocol='NamedPipe',flushNamedPipe='False',monitorChangesTo='{monitorChangesTo}']'''
+    
+    DELETE_TEMPLATE = '''/[arguments='{script} winfcgi --pythonpath={project_dir}']'''
     
     FASTCGI_SECTION = 'system.webServer/fastCgi'
     
     option_list = BaseCommand.option_list + (
+        make_option('--delete',
+            action='store_true',
+            dest='delete',
+            default=False,
+            help='Deletes the configuration instead of creating it'),
         make_option('--max-instances',
             dest='maxInstances',
             default=4,
@@ -75,55 +86,54 @@ class Command(BaseCommand):
             help='Number of requests after which a python process is recycled'),
         make_option('--monitor-changes-to',
             dest='monitorChangesTo',
-            default='web.config',
+            default='',
             help='Application is restarted when this file changes'),
+        make_option('--skip-fastcgi',
+            action='store_true',
+            dest='skip_fastcgi',
+            default=False,
+            help='Skips The FastCGI application installation'),
     )
 
     def __init__(self, *args, **kwargs):
         super(Command, self).__init__(*args, **kwargs)
         self.appcmd = os.path.join(os.environ['windir'], 'system32', 'inetsrv', 'appcmd.exe')
+        self.current_script = os.path.abspath(sys.argv[0])
+        self.project_dir, self.script_name = os.path.split(self.current_script)
+        self.python_interpreter = sys.executable        
         
     def config_command(self, command, section, *args):
         arguments = [ self.appcmd, command, section]
         arguments.extend(args)
+        #print ' '.join(arguments)
         return subprocess.Popen(arguments, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
         
-    def check_config_section_exists(self, section_name):
-        command = self.config_command('list', 'config', '-section:%s' % section_name)
+    def run_config_command(self, command, section, *args):
+        command = self.config_command(command, section, *args)
         (out, err) = command.communicate()
-        return command.returncode == 0
+        result = command.returncode == 0
+        self.last_command_error = out if not result else None
+        return result
         
-    def create_fastcgi_section(self, script, project_dir, options):
+    def check_config_section_exists(self, section_name):
+        return self.run_config_command('list', 'config', '-section:%s' % section_name)
+        
+    def create_fastcgi_section(self, options):
         template_options = options.copy()
-        template_options['script'] = script
-        template_options['project_dir'] = project_dir
-        template_options['python_interpreter'] = sys.executable
+        template_options['script'] = self.current_script
+        template_options['project_dir'] = self.project_dir
+        template_options['python_interpreter'] = self.python_interpreter
         param = self.CONFIGURATION_TEMPLATE.format(**template_options)
-        print param
-
-    def handle(self, *args, **options):
-        current_script = os.path.abspath(sys.argv[0])
-        project_dir, script_name = os.path.split(current_script)
-        python_interpreter = sys.executable
-        if script_name == 'django-admin.py':
-            raise CommandError("""\
-This command does not work when used with django-admin.py.
-Please run it with the manage.py of the root directory of your project.
-""")
-        # Getting installation directory and doing some little checks
-        install_dir = args[0] if args else project_dir
-        if not os.path.exists(install_dir):
-            raise CommandError('The web site directory [%s] does not exist !' % install_dir)
-            
-        if not os.path.isdir(install_dir):
-            raise CommandError('The web site directory [%s] is not a directory !' % install_dir)
-            
-        install_dir = os.path.normcase(os.path.abspath(install_dir))
+        return self.run_config_command('set', 'config', '-section:%s' % self.FASTCGI_SECTION, param, '/commit:apphost')
         
-        if os.path.exists(os.path.join(install_dir, 'web.config')):
-            raise CommandError('A web site configuration already exists in [%s] !' % install_dir)
+    def delete_fastcgi_section(self):
+        template_options = dict(script = self.current_script, project_dir = self.project_dir)
+        param = self.DELETE_TEMPLATE.format(**template_options)
+        return self.run_config_command('clear', 'config', '-section:%s' % self.FASTCGI_SECTION, param, '/commit:apphost')
         
-        print 'Using installation directory %s' % install_dir
+    def install(self, args, options):
+        if os.path.exists(self.web_config):
+            raise CommandError('A web site configuration already exists in [%s] !' % self.install_dir)
         
         # now getting static files directory and URL
         static_dir = os.path.normcase(os.path.abspath(getattr(settings, 'STATIC_ROOT', '')))
@@ -133,23 +143,69 @@ Please run it with the manage.py of the root directory of your project.
         if static_match:        
             static_is_local = True            
             static_name = static_match.group(1)
-            static_needs_virtual_dir = static_dir != os.path.join(install_dir,static_name)
+            static_needs_virtual_dir = static_dir != os.path.join(self.install_dir, static_name)
         else:
             static_is_local = False
         
-        if static_dir == install_dir and static_is_local:
+        if static_dir == self.install_dir and static_is_local:
             raise CommandError('''\
 The web site directory cannot be the same as the static directory,
 for we cannot have two different web.config files in the same
 directory !''')
             
+        if options['monitorChangesTo'] == '':
+            options['monitorChangesTo'] = os.path.join(self.install_dir, 'web.config')
+            
+        # create FastCGI application
+        if not options['skip_fastcgi'] and not self.create_fastcgi_section(options):
+            raise CommandError('The FastCGI application creation has failed')
+            
+        # create web.config
+        template = get_template('windows_tools/iis/web.config')
+        file = open(self.web_config, 'w')
+        file.write(template.render(Context(self.__dict__)))
+        file.close()
+
+    def delete(self, args, options):
+        if not os.path.exists(self.web_config):
+            raise CommandError('A web site configuration does not exists in [%s] !' % self.install_dir)
+
+        os.remove(self.web_config)
+        
+        if not self.delete_fastcgi_section():
+            raise CommandError('The FastCGI application removal has failed')
+
+    def handle(self, *args, **options):
+        if self.script_name == 'django-admin.py':
+            raise CommandError("""\
+This command does not work when used with django-admin.py.
+Please run it with the manage.py of the root directory of your project.
+""")
+        # Getting installation directory and doing some little checks
+        self.install_dir = args[0] if args else self.project_dir
+        if not os.path.exists(self.install_dir):
+            raise CommandError('The web site directory [%s] does not exist !' % self.install_dir)
+            
+        if not os.path.isdir(self.install_dir):
+            raise CommandError('The web site directory [%s] is not a directory !' % self.install_dir)
+            
+        self.install_dir = os.path.normcase(os.path.abspath(self.install_dir))
+                
+        print 'Using installation directory %s' % self.install_dir
+        
+        self.web_config = os.path.join(self.install_dir, 'web.config')
+        
         if not os.path.exists(self.appcmd):
             raise CommandError('It seems that IIS is not installed on your machine')
 
         if not self.check_config_section_exists(self.FASTCGI_SECTION):
             raise CommandError('It seems that The CGI module is not installed')
-            
-        self.create_fastcgi_section(current_script, project_dir, options)
+
+        if options['delete']:
+            self.delete(args,options)
+        else:
+            self.install(args,options)
+        
 
 if __name__ == '__main__':
     print 'This is supposed to be run as a django management command'
