@@ -34,6 +34,7 @@ import os.path
 import logging
 import sys
 import re
+import stat
 from optparse import OptionParser
 from django.core.management.base import BaseCommand, CommandError
 from django.template.loader import get_template
@@ -41,6 +42,27 @@ from django.template import Context
 from django.conf import settings
 from optparse import make_option
 import subprocess
+
+
+
+def set_file_readable(filename):
+    import win32api
+    import win32security
+    import ntsecuritycon as con
+
+    users, domain, type = win32security.LookupAccountName ("", "Users")
+    admins, domain, type = win32security.LookupAccountName ("", "Administrators")
+    user, domain, type = win32security.LookupAccountName ("", win32api.GetUserName ())
+
+    sd = win32security.GetFileSecurity (filename, win32security.DACL_SECURITY_INFORMATION)
+
+    dacl = win32security.ACL ()
+    dacl.AddAccessAllowedAce (win32security.ACL_REVISION, con.FILE_ALL_ACCESS, users)
+    dacl.AddAccessAllowedAce (win32security.ACL_REVISION, con.FILE_ALL_ACCESS, user)
+    dacl.AddAccessAllowedAce (win32security.ACL_REVISION, con.FILE_ALL_ACCESS, admins)
+    sd.SetSecurityDescriptorDacl (1, dacl, 0)
+    win32security.SetFileSecurity (filename, win32security.DACL_SECURITY_INFORMATION, sd)
+    
 
 class Command(BaseCommand):
     args = '[root_path]'
@@ -88,11 +110,29 @@ class Command(BaseCommand):
             dest='monitorChangesTo',
             default='',
             help='Application is restarted when this file changes'),
+        make_option('--site-name',
+            dest='site_name',
+            default='',
+            help='IIS site name (defaults to name of installation directory)'),
+        make_option('--binding',
+            dest='binding',
+            default='http://*:80',
+            help='IIS site binding. Defaults to http://*:80'),
         make_option('--skip-fastcgi',
             action='store_true',
             dest='skip_fastcgi',
             default=False,
             help='Skips The FastCGI application installation'),
+        make_option('--skip-site',
+            action='store_true',
+            dest='skip_site',
+            default=False,
+            help='Skips The site creation'),
+        make_option('--skip-config',
+            action='store_true',
+            dest='skip_config',
+            default=False,
+            help='Skips The configuration creation'),
     )
 
     def __init__(self, *args, **kwargs):
@@ -132,7 +172,7 @@ class Command(BaseCommand):
         return self.run_config_command('clear', 'config', '-section:%s' % self.FASTCGI_SECTION, param, '/commit:apphost')
         
     def install(self, args, options):
-        if os.path.exists(self.web_config):
+        if os.path.exists(self.web_config) and not options['skip_config']:
             raise CommandError('A web site configuration already exists in [%s] !' % self.install_dir)
         
         # now getting static files directory and URL
@@ -153,27 +193,61 @@ The web site directory cannot be the same as the static directory,
 for we cannot have two different web.config files in the same
 directory !''')
             
+        # create web.config
+        if not options['skip_config']:
+            print "Creating web.config"
+            template = get_template('windows_tools/iis/web.config')
+            file = open(self.web_config, 'w')
+            file.write(template.render(Context(self.__dict__)))
+            file.close()            
+            set_file_readable(self.web_config)
+
         if options['monitorChangesTo'] == '':
             options['monitorChangesTo'] = os.path.join(self.install_dir, 'web.config')
             
         # create FastCGI application
-        if not options['skip_fastcgi'] and not self.create_fastcgi_section(options):
-            raise CommandError('The FastCGI application creation has failed')
+        if not options['skip_fastcgi']:
+            print "Creating FastCGI application"
+            if not self.create_fastcgi_section(options):
+                raise CommandError('The FastCGI application creation has failed with the following message :\n%s' % self.last_command_error)
             
-        # create web.config
-        template = get_template('windows_tools/iis/web.config')
-        file = open(self.web_config, 'w')
-        file.write(template.render(Context(self.__dict__)))
-        file.close()
+        # Create sites
+        if not options['skip_site']:
+            site_name = options['site_name']
+            print "Creating application pool with name %s"  % site_name
+            if not self.run_config_command('add', 'apppool', '/name:%s' % site_name):
+                raise CommandError('The Application Pool creation has failed with the following message :\n%s' % self.last_command_error)
+                
+            print "Creating the site"
+            if not self.run_config_command('add', 'site', '/name:%s' % site_name, '/bindings:%s' % options['binding'], '/physicalPath:%s' % self.install_dir):
+                raise CommandError('The site creation has failed with the following message :\n%s' % self.last_command_error)
+            
+            print "Adding the site to the application pool"
+            if not self.run_config_command('set', 'app', '%s/' % site_name, '/applicationPool:%s' % site_name):
+                raise CommandError('Adding the site to the application pool has failed with the following message :\n%s' % self.last_command_error)
 
     def delete(self, args, options):
-        if not os.path.exists(self.web_config):
+        if not os.path.exists(self.web_config) and not options['skip_config']:
             raise CommandError('A web site configuration does not exists in [%s] !' % self.install_dir)
 
-        os.remove(self.web_config)
+        if not options['skip_config']:
+            print "Removing site configuration"
+            os.remove(self.web_config)
         
-        if not self.delete_fastcgi_section():
-            raise CommandError('The FastCGI application removal has failed')
+        if not options['skip_site']:
+            site_name = options['site_name']
+            print "Removing The site"
+            if not self.run_config_command('delete', 'site', site_name):
+                raise CommandError('Removing the site has failed with the following message :\n%s' % self.last_command_error)
+
+            print "Removing The application pool"
+            if not self.run_config_command('delete', 'apppool', site_name):
+                raise CommandError('Removing the site has failed with the following message :\n%s' % self.last_command_error)
+
+        if not options['skip_fastcgi']:
+            print "Removing FastCGI application"
+            if not self.delete_fastcgi_section():
+                raise CommandError('The FastCGI application removal has failed')
 
     def handle(self, *args, **options):
         if self.script_name == 'django-admin.py':
@@ -194,6 +268,9 @@ Please run it with the manage.py of the root directory of your project.
         print 'Using installation directory %s' % self.install_dir
         
         self.web_config = os.path.join(self.install_dir, 'web.config')
+        
+        if options['site_name'] == '':
+            options['site_name'] = os.path.split(self.install_dir)[1]
         
         if not os.path.exists(self.appcmd):
             raise CommandError('It seems that IIS is not installed on your machine')
