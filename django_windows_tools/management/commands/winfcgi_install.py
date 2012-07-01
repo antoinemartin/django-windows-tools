@@ -145,7 +145,7 @@ class Command(BaseCommand):
     def config_command(self, command, section, *args):
         arguments = [ self.appcmd, command, section]
         arguments.extend(args)
-        #print ' '.join(arguments)
+        # print ' '.join(arguments)
         return subprocess.Popen(arguments, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
         
     def run_config_command(self, command, section, *args):
@@ -225,6 +225,12 @@ directory !''')
             print "Adding the site to the application pool"
             if not self.run_config_command('set', 'app', '%s/' % site_name, '/applicationPool:%s' % site_name):
                 raise CommandError('Adding the site to the application pool has failed with the following message :\n%s' % self.last_command_error)
+            
+            if static_is_local and static_needs_virtual_dir:
+                print "Creating virtual directory for [%s] in [%s]" % (static_dir, static_url)
+                if not self.run_config_command('add', 'vdir', '/app.name:%s/' % site_name, '/path:/%s' % static_name, '/physicalPath:%s' % static_dir):
+                    raise CommandError('Adding the static virtual directory has failed with the following message :\n%s' % self.last_command_error)
+                
 
     def delete(self, args, options):
         if not os.path.exists(self.web_config) and not options['skip_config']:
