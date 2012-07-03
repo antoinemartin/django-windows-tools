@@ -8,6 +8,8 @@ It provides management commands allowing to:
 - Host a Django application behind IIS as a FastCGI application (requires IIS 7 and Up).
 - Run Celery and Celery Beat background processes as a Windows Service.
 
+It requires Django 1.4 and pywin32.
+
 Installation and Configuration
 ##############################
 
@@ -130,7 +132,7 @@ section. The section contains two directives:
 - ``parameters`` specifies the parameters to the command.
 
 In the previous configuration file, the ``celeryd`` configuration will spawn a process 
-that will run the same command as :
+that will run the same command as : ::
 
   D:\sites\mydjangoapp> python manage.py celeryd -f d:\logs\celery.log -l info
 
