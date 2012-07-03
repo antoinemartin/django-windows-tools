@@ -2,9 +2,7 @@
 
 # FastCGI-to-WSGI bridge for files/pipes transport (not socket)
 #
-# Copyright (c) 2002, 2003, 2005, 2006 Allan Saddi <allan@saddi.com>
-# Copyright (c) 2011 Ruslan Keba <ruslan@helicontech.com>
-# Copyright (c) 2012 Antoine Martin <antoine@openance.com>
+# Copyright (c) 2012 Openance SARL
 # All rights reserved.
 #
 # Redistribution and use in source and binary forms, with or without

@@ -2,7 +2,7 @@
 
 # FastCGI Windows Server Django installation command
 #
-# Copyright (c) 2012 Openance
+# Copyright (c) 2012 Openance SARL
 # All rights reserved.
 #
 # Redistribution and use in source and binary forms, with or without
