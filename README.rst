@@ -77,7 +77,7 @@ With the application installed, on the root of your project, type the following 
 It will create two files, ``service.py`` and ``service.ini`` in the 
 root directory of your project. The first one will help you install,
 run and remove the Windows Service. Ther later one contain the list of 
-the management commands that will be run by the Windows Service: ::
+the management commands that will be run by the Windows Service.
 
 Configuration
 -------------
