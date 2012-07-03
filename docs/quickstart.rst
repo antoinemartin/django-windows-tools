@@ -2,4 +2,4 @@ Quick Start
 ===========
 
 .. include:: ../README.rst
-    :start-after: pywin32.
+    :start-after: readthedocs.org>`_.

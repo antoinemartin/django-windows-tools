@@ -10,6 +10,9 @@ It provides management commands allowing to:
 
 It requires Django 1.4 and pywin32.
 
+The following gives a Quick overview of the project. For more information, please
+read the `Project documentation <http://django-windows-tools.readthedocs.org>`_.
+
 Installation and Configuration
 ##############################
 
