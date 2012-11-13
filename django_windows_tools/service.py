@@ -53,8 +53,26 @@ def new_get_preparation_data(name):
     if d.has_key('main_path') and d['main_path'].lower().endswith('.exe'):
         del d['main_path']
     return d
-    
+
 multiprocessing.forking.get_preparation_data = new_get_preparation_data
+    
+# Do the same monkey patching on billiard which is a fork of
+# multiprocessing
+try:
+    import billiard.forking as billiard_forking
+    billiard_old_get_preparation_data = billiard_forking.get_preparation_data
+
+    def billiard_new_get_preparation_data(name):
+        d = billiard_old_get_preparation_data(name)
+        if d.has_key('main_path') and d['main_path'].lower().endswith('.exe'):
+            #del d['main_path']
+            d['main_path'] = '__main__.py'
+        return d
+        
+    billiard_forking.get_preparation_data = billiard_new_get_preparation_data
+except:
+    pass
+    
 
 def log(msg):
     '''Log a message in the Event Viewer as an informational message'''
@@ -116,7 +134,7 @@ def spawn_command(config, server_name):
     '''
     Spawn a command specified in a configuration file and return the process object.
     '''
-    args = [__file__]
+    args = [getattr(sys.modules['__main__'], '__file__', __file__)]
     args.append(config.get(server_name, 'command'))
     args += config.get(server_name, 'parameters').split()
     process = Process(target=start_django_command, args=(config, args,))
