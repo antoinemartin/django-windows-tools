@@ -50,8 +50,8 @@ def set_file_readable(filename):
     import win32security
     import ntsecuritycon as con
 
-    users, domain, type = win32security.LookupAccountName ("", "Users")
-    admins, domain, type = win32security.LookupAccountName ("", "Administrators")
+    users = win32security.ConvertStringSidToSid("S-1-5-32-545")
+    admins = win32security.ConvertStringSidToSid("S-1-5-32-544")
     user, domain, type = win32security.LookupAccountName ("", win32api.GetUserName ())
 
     sd = win32security.GetFileSecurity (filename, win32security.DACL_SECURITY_INFORMATION)
