@@ -235,9 +235,9 @@ directory !''')
                 if not self.run_config_command('add', 'vdir', '/app.name:%s/' % site_name, '/path:/%s' % static_name, '/physicalPath:%s' % static_dir):
                     raise CommandError('Adding the static virtual directory has failed with the following message :\n%s' % self.last_command_error)
                 
-            log_dir = options['log-dir']
+            log_dir = options['log_dir']
             if log_dir:
-                if not self.run_config_command('set', 'app', '%s/' % site_name, '/logFile.directory:%s' % log_dir):
+                if not self.run_config_command('set', 'site', '%s/' % site_name, '/logFile.directory:%s' % log_dir):
                     raise CommandError('Setting the logging directory has failed with the following message :\n%s' % self.last_command_error)
                     
 
