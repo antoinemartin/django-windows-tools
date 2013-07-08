@@ -118,6 +118,10 @@ class Command(BaseCommand):
             dest='binding',
             default='http://*:80',
             help='IIS site binding. Defaults to http://*:80'),
+        make_option('--log-dir',
+            dest='log_dir',
+            default='',
+            help='Directory for IIS logfiles (defaults to %SystemDrive%\inetpub\logs\LogFiles)'),
         make_option('--skip-fastcgi',
             action='store_true',
             dest='skip_fastcgi',
@@ -231,6 +235,11 @@ directory !''')
                 if not self.run_config_command('add', 'vdir', '/app.name:%s/' % site_name, '/path:/%s' % static_name, '/physicalPath:%s' % static_dir):
                     raise CommandError('Adding the static virtual directory has failed with the following message :\n%s' % self.last_command_error)
                 
+            log_dir = options['log-dir']
+            if log_dir:
+                if not self.run_config_command('set', 'app', '%s/' % site_name, '/logFile.directory:%s' % log_dir):
+                    raise CommandError('Setting the logging directory has failed with the following message :\n%s' % self.last_command_error)
+                    
 
     def delete(self, args, options):
         if not os.path.exists(self.web_config) and not options['skip_config']:
