@@ -50,8 +50,10 @@ def set_file_readable(filename):
     import win32security
     import ntsecuritycon as con
 
-    users, domain, type = win32security.LookupAccountName ("", "Users")
-    admins, domain, type = win32security.LookupAccountName ("", "Administrators")
+    WinBuiltinUsersSid=27 # not exported by win32security. according to WELL_KNOWN_SID_TYPE enumeration from http://msdn.microsoft.com/en-us/library/windows/desktop/aa379650%28v=vs.85%29.aspx
+    users=win32security.CreateWellKnownSid(WinBuiltinUsersSid)
+    WinBuiltinAdministratorsSid=26 # not exported by win32security. according to WELL_KNOWN_SID_TYPE enumeration from http://msdn.microsoft.com/en-us/library/windows/desktop/aa379650%28v=vs.85%29.aspx
+    admins=win32security.CreateWellKnownSid(WinBuiltinAdministratorsSid)
     user, domain, type = win32security.LookupAccountName ("", win32api.GetUserName ())
 
     sd = win32security.GetFileSecurity (filename, win32security.DACL_SECURITY_INFORMATION)
