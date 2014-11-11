@@ -20,11 +20,11 @@ You install the application with the command: ::
 
     pip install django-windows-tools
 
-Or if you're installing from source: ::
+Or you may install the latest development version for more fixed bugs: ::
 
-    python setup.py install
+    pip install git+https://github.com/antoinemartin/django-windows-tools@master
 
-To be able to use the management commands, simply add the ``django_windows_tools`` application to
+Enable the ``django_windows_tools`` application to be able to use the management commands. Add the app to
 the project's list in ``settings.py``: ::
 
     INSTALLED_APPS += (
