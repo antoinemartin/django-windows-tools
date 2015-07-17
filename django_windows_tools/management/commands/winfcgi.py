@@ -41,6 +41,12 @@ import traceback
 import datetime
 import urllib
 from optparse import OptionParser
+
+if sys.version_info >= (3, ):
+    long_int = int
+else:
+    long_int = long
+
 from django.core.management.base import BaseCommand
 from django.conf import settings
 
@@ -369,13 +375,13 @@ def encode_pair(name, value):
     if nameLength < 128:
         s = chr(nameLength)
     else:
-        s = struct.pack('!L', nameLength | 0x80000000L)
+        s = struct.pack('!L', nameLength | long_int('0x80000000'))
 
     valueLength = len(value)
     if valueLength < 128:
         s += chr(valueLength)
     else:
-        s += struct.pack('!L', valueLength | 0x80000000L)
+        s += struct.pack('!L', valueLength | long_int('0x80000000'))
 
     return s + name + value
 
@@ -518,7 +524,7 @@ class Request(object):
 
         try:
             protocolStatus, appStatus = self.server.handler(self)
-        except Exception, instance:
+        except Exception as instance:
             if FCGI_DEBUG: 
                 logging.error(traceback.format_exc())
             raise
@@ -534,7 +540,7 @@ class Request(object):
         self._end(appStatus, protocolStatus)
 
 
-    def _end(self, appStatus=0L, protocolStatus=FCGI_REQUEST_COMPLETE):
+    def _end(self, appStatus=long_int('0'), protocolStatus=FCGI_REQUEST_COMPLETE):
         self._conn.end_request(self, appStatus, protocolStatus)
 
 
@@ -618,7 +624,7 @@ class Connection(object):
         rec.write(self._stdout)
 
 
-    def end_request(self, req, appStatus=0L, protocolStatus=FCGI_REQUEST_COMPLETE, remove=True):
+    def end_request(self, req, appStatus=long_int('0'), protocolStatus=FCGI_REQUEST_COMPLETE, remove=True):
         """
         End a Request.
 
@@ -678,7 +684,7 @@ class Connection(object):
 
         if not self._multiplexed and self._requests:
             # Can't multiplex requests.
-            self.end_request(req, 0L, FCGI_CANT_MPX_CONN, remove=False)
+            self.end_request(req, long_int(0), FCGI_CANT_MPX_CONN, remove=False)
         else:
             self._requests[inrec.requestId] = req
 
@@ -839,7 +845,7 @@ class FCGIServer(object):
                 try:
                     if headers_sent:
                         # Re-raise if too late
-                        raise exc_info[0], exc_info[1], exc_info[2]
+                        raise exc_info[0].with_traceback(exc_info[2])
                 finally:
                     exc_info = None # avoid dangling circular ref
             else:

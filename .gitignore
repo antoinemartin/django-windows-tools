@@ -28,3 +28,6 @@ pip-log.txt
 
 #sphinx
 _build
+
+#pycharm
+.idea/
