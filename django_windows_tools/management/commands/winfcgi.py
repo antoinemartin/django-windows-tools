@@ -345,14 +345,14 @@ def decode_pair(s, pos=0):
     The number of bytes decoded as well as the name/value pair
     are returned.
     """
-    nameLength = s[pos]
+    nameLength = ord(s[pos]) if type(s) is str else s[pos]
     if nameLength & 128:
         nameLength = struct.unpack('!L', s[pos:pos + 4])[0] & 0x7fffffff
         pos += 4
     else:
         pos += 1
 
-    valueLength = s[pos]
+    valueLength = ord(s[pos]) if type(s) is str else s[pos]
     if valueLength & 128:
         valueLength = struct.unpack('!L', s[pos:pos + 4])[0] & 0x7fffffff
         pos += 4
