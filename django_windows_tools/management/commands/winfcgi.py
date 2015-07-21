@@ -39,13 +39,14 @@ import logging
 import sys
 import traceback
 import datetime
-import urllib
 from optparse import OptionParser
 
 if sys.version_info >= (3,):
     long_int = int
+    import urllib.parse as urllib
 else:
     long_int = long
+    import urllib
 
 from django.core.management.base import BaseCommand
 from django.conf import settings
@@ -122,7 +123,7 @@ class InputStream(object):
         # See Server.
         self._shrinkThreshold = conn.server.inputStreamShrinkThreshold
 
-        self._buf = ''
+        self._buf = b''
         self._bufList = []
         self._pos = 0  # Current read position.
         self._avail = 0  # Number of bytes currently available.
@@ -144,7 +145,7 @@ class InputStream(object):
 
     def read(self, n=-1):
         if self._pos == self._avail and self._eof:
-            return ''
+            return b''
         while True:
             if n < 0 or (self._avail - self._pos) < n:
                 # Not enough data available.
@@ -161,7 +162,7 @@ class InputStream(object):
                 break
                 # Merge buffer list, if necessary.
         if self._bufList:
-            self._buf += ''.join(self._bufList)
+            self._buf += b''.join(self._bufList)
             self._bufList = []
         r = self._buf[self._pos:newPos]
         self._pos = newPos
@@ -170,14 +171,14 @@ class InputStream(object):
 
     def readline(self, length=None):
         if self._pos == self._avail and self._eof:
-            return ''
+            return b''
         while True:
             # Unfortunately, we need to merge the buffer list early.
             if self._bufList:
-                self._buf += ''.join(self._bufList)
+                self._buf += b''.join(self._bufList)
                 self._bufList = []
                 # Find newline.
-            i = self._buf.find('\n', self._pos)
+            i = self._buf.find(b'\n', self._pos)
             if i < 0:
                 # Not found?
                 if self._eof:
@@ -279,7 +280,7 @@ class OutputStream(object):
     def flush(self):
         # Only need to flush if this OutputStream is actually buffered.
         if self._buffered:
-            data = ''.join(self._bufList)
+            data = b''.join(self._bufList)
             self._bufList = []
             self._write(data)
 
@@ -344,14 +345,14 @@ def decode_pair(s, pos=0):
     The number of bytes decoded as well as the name/value pair
     are returned.
     """
-    nameLength = ord(s[pos])
+    nameLength = s[pos]
     if nameLength & 128:
         nameLength = struct.unpack('!L', s[pos:pos + 4])[0] & 0x7fffffff
         pos += 4
     else:
         pos += 1
 
-    valueLength = ord(s[pos])
+    valueLength = s[pos]
     if valueLength & 128:
         valueLength = struct.unpack('!L', s[pos:pos + 4])[0] & 0x7fffffff
         pos += 4
@@ -363,7 +364,7 @@ def decode_pair(s, pos=0):
     value = s[pos:pos + valueLength]
     pos += valueLength
 
-    return pos, (name, value)
+    return pos, (name.decode('utf-8'), value.decode('utf-8'))
 
 
 def encode_pair(name, value):
@@ -384,7 +385,7 @@ def encode_pair(name, value):
     else:
         s += struct.pack('!L', valueLength | long_int('0x80000000'))
 
-    return s + name + value
+    return s + name.encode('utf-8') + value.encode('utf-8')
 
 
 class Record(object):
@@ -399,7 +400,7 @@ class Record(object):
         self.requestId = requestId
         self.contentLength = 0
         self.paddingLength = 0
-        self.contentData = ''
+        self.contentData = b''
 
     def _recvall(stream, length):
         """
@@ -423,7 +424,7 @@ class Record(object):
 
         # if FCGI_DEBUG: logging.debug('recived length = %d' % (recvLen))
 
-        return ''.join(dataList), recvLen
+        return b''.join(dataList), recvLen
 
     _recvall = staticmethod(_recvall)
 
@@ -441,7 +442,7 @@ class Record(object):
         if FCGI_DEBUG:
             hex = ''
             for s in header:
-                hex += '%x|' % (ord(s))
+                hex += '%x|' % (s)
 
         self.version, self.type, self.requestId, self.contentLength, \
         self.paddingLength = struct.unpack(FCGI_Header, header)
@@ -469,8 +470,8 @@ class Record(object):
         """
         Writes data to a socket and does not return until all the data is sent.
         """
-        if FCGI_DEBUG: logging.debug('_sendall: len=%d' % len(data))
-        stream.write(data)
+        if FCGI_DEBUG: logging.debug('_sendall: len=%d type=%s' % (len(data), type(data)))
+        stream.write(data.encode('utf-8') if type(data) is str else data)
 
     _sendall = staticmethod(_sendall)
 
@@ -495,7 +496,7 @@ class Record(object):
             self._sendall(stream, self.contentData)
         if self.paddingLength:
             if FCGI_DEBUG: logging.debug('send PADDING')
-            self._sendall(stream, '\x00' * self.paddingLength)
+            self._sendall(stream, b'\x00' * self.paddingLength)
 
 
 class Request(object):
@@ -524,14 +525,11 @@ class Request(object):
         try:
             protocolStatus, appStatus = self.server.handler(self)
         except Exception as instance:
-            if FCGI_DEBUG:
-                logging.error(traceback.format_exc())
-            raise
             # TODO: fix it
-            # self.stderr.flush()
-            # if not self.stdout.dataWritten:
-            #    self.server.error(self)
-            # protocolStatus, appStatus = FCGI_REQUEST_COMPLETE, 0
+            self.stderr.flush()
+            if not self.stdout.dataWritten:
+               self.server.error(self)
+            protocolStatus, appStatus = FCGI_REQUEST_COMPLETE, 0
 
         if FCGI_DEBUG: logging.debug('protocolStatus = %d, appStatus = %d' % (protocolStatus, appStatus))
 
@@ -762,11 +760,15 @@ class FCGIServer(object):
 
     def run(self):
         msvcrt.setmode(sys.stdin.fileno(), os.O_BINARY)
-        stdin = sys.stdin
-        stdout = os.fdopen(sys.stdin.fileno(), 'w', 0)
+        stdin = os.fdopen(sys.stdin.fileno(), 'rb', 0)
+        stdout = os.fdopen(sys.stdin.fileno(), 'wb', 0)
 
         conn = Connection(stdin, stdout, self)
-        conn.run()
+        try:
+            conn.run()
+        except Exception as e:
+            logging.exception(e)
+            raise
 
     def handler(self, req):
         """Special handler for WSGI."""
@@ -779,6 +781,7 @@ class FCGIServer(object):
 
         environ['wsgi.version'] = (1, 0)
         environ['wsgi.input'] = req.stdin
+        # TODO - sys.stderr appears to be None here?? (on Windows/IIS)
         stderr = TeeOutputStream((sys.stderr, req.stderr))
         environ['wsgi.errors'] = stderr
         environ['wsgi.multithread'] = False
@@ -797,7 +800,7 @@ class FCGIServer(object):
         result = None
 
         def write(data):
-            assert type(data) is str, 'write() argument must be string'
+            assert type(data) is str or type(data) is bytes, 'write() argument must be string or bytes'
             assert headers_set, 'write() before start_response()'
 
             if not headers_sent:
@@ -884,10 +887,10 @@ class FCGIServer(object):
         environ['SCRIPT_NAME'] = ''
 
         reqUri = None
-        if environ.has_key('REQUEST_URI'):
+        if 'REQUEST_URI' in environ:
             reqUri = environ['REQUEST_URI'].split('?', 1)
 
-        if not environ.has_key('PATH_INFO') or not environ['PATH_INFO']:
+        if not 'PATH_INFO' in environ or not environ['PATH_INFO']:
             if reqUri is not None:
                 environ['PATH_INFO'] = reqUri[0]
             else:
@@ -900,7 +903,7 @@ class FCGIServer(object):
         if self.app_root and environ['PATH_INFO'].startswith(self.app_root):
             environ['PATH_INFO'] = environ['PATH_INFO'][len(self.app_root):]
 
-        if not environ.has_key('QUERY_STRING') or not environ['QUERY_STRING']:
+        if not 'QUERY_STRING' in environ or not environ['QUERY_STRING']:
             if reqUri is not None and len(reqUri) > 1:
                 environ['QUERY_STRING'] = reqUri[1]
             else:
@@ -912,7 +915,7 @@ class FCGIServer(object):
                               ('SERVER_NAME', 'localhost'),
                               ('SERVER_PORT', '80'),
                               ('SERVER_PROTOCOL', 'HTTP/1.0')]:
-            if not environ.has_key(name):
+            if not name in environ:
                 environ['wsgi.errors'].write('%s: missing FastCGI param %s '
                                              'required by WSGI!\n' %
                                              (self.__class__.__name__, name))
@@ -1019,7 +1022,7 @@ class Command(BaseCommand):
                 'Could not import django.core.handlers.wsgi module. Check that django is installed and in PYTHONPATH.')
             raise
 
-        FCGIServer(WSGIHandler(), app_root=django_root).run()
+        FCGIServer(WSGIHandler(), app_root=django_root, debug=settings.DEBUG).run()
 
 
 if __name__ == '__main__':
