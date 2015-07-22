@@ -51,6 +51,9 @@ if sys.version_info >= (3,):
 
     def int_to_char(value):
         return bytes([value])
+
+    def make_bytes(content):
+        return bytes(content, "utf-8") if type(bytes) is str else content
 else:
     long_int = long
     bytes_type = str
@@ -61,6 +64,9 @@ else:
 
     def int_to_char(value):
         return chr(value)
+
+    def make_bytes(content):
+        return content
 
 from django.core.management.base import BaseCommand
 from django.conf import settings
@@ -544,6 +550,7 @@ class Request(object):
         try:
             protocolStatus, appStatus = self.server.handler(self)
         except Exception as instance:
+            logging.exception(instance)  # just in case there's another error reporting the exception
             # TODO: fix it
             self.stderr.flush()
             if not self.stdout.dataWritten:
@@ -840,7 +847,7 @@ class FCGIServer(object):
                 for header in responseHeaders:
                     s += '%s: %s\r\n' % header
                 s += '\r\n'
-                req.stdout.write(s)
+                req.stdout.write(s.encode("utf-8"))
 
             req.stdout.write(data)
             req.stdout.flush()
@@ -877,7 +884,7 @@ class FCGIServer(object):
                 try:
                     for data in result:
                         if data:
-                            write(data)
+                            write(make_bytes(data))
                     if not headers_sent:
                         write('')  # in case body was empty
                 finally:
