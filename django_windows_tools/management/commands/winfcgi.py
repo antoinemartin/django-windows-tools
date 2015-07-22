@@ -43,10 +43,24 @@ from optparse import OptionParser
 
 if sys.version_info >= (3,):
     long_int = int
-    import urllib.parse as urllib
+    bytes_type = bytes
+    import urllib.parse as url_parse
+
+    def char_to_int(value):
+        return int(value)
+
+    def int_to_char(value):
+        return bytes([value])
 else:
     long_int = long
-    import urllib
+    bytes_type = str
+    import urllib as url_parse
+
+    def char_to_int(value):
+        return ord(value)
+
+    def int_to_char(value):
+        return chr(value)
 
 from django.core.management.base import BaseCommand
 from django.conf import settings
@@ -345,14 +359,14 @@ def decode_pair(s, pos=0):
     The number of bytes decoded as well as the name/value pair
     are returned.
     """
-    nameLength = ord(s[pos]) if type(s) is str else s[pos]
+    nameLength = char_to_int(s[pos])
     if nameLength & 128:
         nameLength = struct.unpack('!L', s[pos:pos + 4])[0] & 0x7fffffff
         pos += 4
     else:
         pos += 1
 
-    valueLength = ord(s[pos]) if type(s) is str else s[pos]
+    valueLength = char_to_int(s[pos])
     if valueLength & 128:
         valueLength = struct.unpack('!L', s[pos:pos + 4])[0] & 0x7fffffff
         pos += 4
@@ -375,13 +389,13 @@ def encode_pair(name, value):
     """
     nameLength = len(name)
     if nameLength < 128:
-        s = chr(nameLength)
+        s = int_to_char(nameLength)
     else:
         s = struct.pack('!L', nameLength | long_int('0x80000000'))
 
     valueLength = len(value)
     if valueLength < 128:
-        s += chr(valueLength)
+        s += int_to_char(valueLength)
     else:
         s += struct.pack('!L', valueLength | long_int('0x80000000'))
 
@@ -439,17 +453,18 @@ class Record(object):
         if length < FCGI_HEADER_LEN:
             raise EOFError
 
+        self.version, self.type, self.requestId, self.contentLength, \
+        self.paddingLength = struct.unpack(FCGI_Header, header)
+
         if FCGI_DEBUG:
             hex = ''
             for s in header:
                 hex += '%x|' % (s)
-
-        self.version, self.type, self.requestId, self.contentLength, \
-        self.paddingLength = struct.unpack(FCGI_Header, header)
-
-        if FCGI_DEBUG: logging.debug('recv fcgi header: %s %s len: %d' % (
-        FCGI_HEADER_NAMES[self.type] if self.type is not None and self.type < FCGI_MAXTYPE else FCGI_HEADER_NAMES[
-            FCGI_MAXTYPE], hex, len(header)))
+            logging.debug('recv fcgi header: %s %s len: %d' % (
+                FCGI_HEADER_NAMES[self.type] if self.type is not None and self.type < FCGI_MAXTYPE else
+                FCGI_HEADER_NAMES[FCGI_MAXTYPE],
+                hex, len(header)
+            ))
 
         if self.contentLength:
             try:
@@ -470,8 +485,8 @@ class Record(object):
         """
         Writes data to a socket and does not return until all the data is sent.
         """
-        if FCGI_DEBUG: logging.debug('_sendall: len=%d type=%s' % (len(data), type(data)))
-        stream.write(data.encode('utf-8') if type(data) is str else data)
+        if FCGI_DEBUG: logging.debug('_sendall: len=%d' % len(data))
+        stream.write(data)
 
     _sendall = staticmethod(_sendall)
 
@@ -486,8 +501,12 @@ class Record(object):
                              self.requestId, self.contentLength,
                              self.paddingLength)
 
-        if FCGI_DEBUG: logging.debug('send fcgi header: %s' % FCGI_HEADER_NAMES[
-            self.type] if self.type is not None and self.type < FCGI_MAXTYPE else FCGI_HEADER_NAMES[FCGI_MAXTYPE])
+        if FCGI_DEBUG:
+            logging.debug(
+                'send fcgi header: %s' %
+                FCGI_HEADER_NAMES[self.type] if self.type is not None and self.type < FCGI_MAXTYPE else
+                FCGI_HEADER_NAMES[FCGI_MAXTYPE]
+            )
 
         self._sendall(stream, header)
 
@@ -800,7 +819,7 @@ class FCGIServer(object):
         result = None
 
         def write(data):
-            assert type(data) is str or type(data) is bytes, 'write() argument must be string or bytes'
+            assert type(data) is bytes_type, 'write() argument must be bytes'
             assert headers_set, 'write() before start_response()'
 
             if not headers_sent:
@@ -890,20 +909,20 @@ class FCGIServer(object):
         if 'REQUEST_URI' in environ:
             reqUri = environ['REQUEST_URI'].split('?', 1)
 
-        if not 'PATH_INFO' in environ or not environ['PATH_INFO']:
+        if 'PATH_INFO' not in environ or not environ['PATH_INFO']:
             if reqUri is not None:
                 environ['PATH_INFO'] = reqUri[0]
             else:
                 environ['PATH_INFO'] = ''
 
         # convert %XX to python unicode
-        environ['PATH_INFO'] = urllib.unquote(environ['PATH_INFO'])
+        environ['PATH_INFO'] = url_parse.unquote(environ['PATH_INFO'])
 
         # process app_root
         if self.app_root and environ['PATH_INFO'].startswith(self.app_root):
             environ['PATH_INFO'] = environ['PATH_INFO'][len(self.app_root):]
 
-        if not 'QUERY_STRING' in environ or not environ['QUERY_STRING']:
+        if 'QUERY_STRING' not in environ or not environ['QUERY_STRING']:
             if reqUri is not None and len(reqUri) > 1:
                 environ['QUERY_STRING'] = reqUri[1]
             else:
@@ -915,10 +934,11 @@ class FCGIServer(object):
                               ('SERVER_NAME', 'localhost'),
                               ('SERVER_PORT', '80'),
                               ('SERVER_PROTOCOL', 'HTTP/1.0')]:
-            if not name in environ:
-                environ['wsgi.errors'].write('%s: missing FastCGI param %s '
-                                             'required by WSGI!\n' %
-                                             (self.__class__.__name__, name))
+            if name not in environ:
+                message = '%s: missing FastCGI param %s required by WSGI!\n' % (
+                    self.__class__.__name__, name)
+
+                environ['wsgi.errors'].write(message.encode("utf-8"))
                 environ[name] = default
 
     def error(self, req):
@@ -929,11 +949,11 @@ class FCGIServer(object):
         if self.debug:
             import cgitb
 
-            req.stdout.write('Status: 500 Internal Server Error\r\n' +
-                             'Content-Type: text/html\r\n\r\n' +
-                             cgitb.html(sys.exc_info()))
+            req.stdout.write(b'Status: 500 Internal Server Error\r\n' +
+                             b'Content-Type: text/html\r\n\r\n' +
+                             cgitb.html(sys.exc_info()).encode("utf-8"))
         else:
-            errorpage = """<!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML 2.0//EN">
+            errorpage = b"""<!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML 2.0//EN">
 <html><head>
 <title>Unhandled Exception</title>
 </head><body>
@@ -941,8 +961,8 @@ class FCGIServer(object):
 <p>An unhandled exception was thrown by the application.</p>
 </body></html>
 """
-            req.stdout.write('Status: 500 Internal Server Error\r\n' +
-                             'Content-Type: text/html\r\n\r\n' +
+            req.stdout.write(b'Status: 500 Internal Server Error\r\n' +
+                             b'Content-Type: text/html\r\n\r\n' +
                              errorpage)
 
 
@@ -956,7 +976,7 @@ def example_application(environ, start_response):
         data += '%s: %s\n' % (e, environ[e])
     data += 'sys.version: ' + sys.version + '\n'
     start_response('200 OK', [('Content-Type', 'text/plain'), ('Content-Length', str(len(data)))])
-    yield data
+    yield data.encode("utf-8")
 
 
 def run_example_app():
