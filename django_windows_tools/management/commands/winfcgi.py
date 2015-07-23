@@ -28,6 +28,7 @@
 # OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
 # SUCH DAMAGE.
 #
+from future.utils import raise_with_traceback
 
 __author__ = 'Allan Saddi <allan@saddi.com>, Ruslan Keba <ruslan@helicontech.com>, Antoine Martin <antoine@openance.com>'
 
@@ -53,7 +54,7 @@ if sys.version_info >= (3,):
         return bytes([value])
 
     def make_bytes(content):
-        return bytes(content, "utf-8") if type(bytes) is str else content
+        return bytes(content, FCGI_CONTENT_ENCODING) if type(content) is str else content
 else:
     long_int = long
     bytes_type = str
@@ -125,6 +126,11 @@ FCGI_HEADER_NAMES = (
     'GET_VALUES_RESULT',
     'UNKNOWN_TYPE',
 )
+
+# configuration not from the spec
+
+FCGI_PARAMS_ENCODING = "utf-8"
+FCGI_CONTENT_ENCODING = FCGI_PARAMS_ENCODING
 
 FCGI_DEBUG = getattr(settings, 'FCGI_DEBUG', settings.DEBUG)
 FCGI_LOG = getattr(settings, 'FCGI_LOG', FCGI_DEBUG)
@@ -384,7 +390,12 @@ def decode_pair(s, pos=0):
     value = s[pos:pos + valueLength]
     pos += valueLength
 
-    return pos, (name.decode('utf-8'), value.decode('utf-8'))
+    # when decoding, the fallback encoding must be one which can encode any binary value
+    # i.e. it must be a code-page-based encoding with no undefined values - e.g. cp850.
+    try:
+        return pos, (name.decode(FCGI_PARAMS_ENCODING), value.decode(FCGI_PARAMS_ENCODING))
+    except UnicodeError:
+        return pos, (name.decode('cp850'), value.decode('cp850'))
 
 
 def encode_pair(name, value):
@@ -405,7 +416,12 @@ def encode_pair(name, value):
     else:
         s += struct.pack('!L', valueLength | long_int('0x80000000'))
 
-    return s + name.encode('utf-8') + value.encode('utf-8')
+    # when encoding, the fallback encoding must be one which can encode any unicode code point
+    # i.e. it must be a UTF-* encoding.  since we're on the web the default choice is UTF-8.
+    try:
+        return s + name.encode(FCGI_PARAMS_ENCODING) + value.encode(FCGI_PARAMS_ENCODING)
+    except UnicodeError:
+        return s + name.encode('utf-8') + value.encode('utf-8')
 
 
 class Record(object):
@@ -465,7 +481,7 @@ class Record(object):
         if FCGI_DEBUG:
             hex = ''
             for s in header:
-                hex += '%x|' % (s)
+                hex += '%x|' % (char_to_int(s))
             logging.debug('recv fcgi header: %s %s len: %d' % (
                 FCGI_HEADER_NAMES[self.type] if self.type is not None and self.type < FCGI_MAXTYPE else
                 FCGI_HEADER_NAMES[FCGI_MAXTYPE],
@@ -551,10 +567,10 @@ class Request(object):
             protocolStatus, appStatus = self.server.handler(self)
         except Exception as instance:
             logging.exception(instance)  # just in case there's another error reporting the exception
-            # TODO: fix it
+            # TODO: this appears to cause FCGI timeouts sometimes.  is it an exception loop?
             self.stderr.flush()
             if not self.stdout.dataWritten:
-               self.server.error(self)
+                self.server.error(self)
             protocolStatus, appStatus = FCGI_REQUEST_COMPLETE, 0
 
         if FCGI_DEBUG: logging.debug('protocolStatus = %d, appStatus = %d' % (protocolStatus, appStatus))
@@ -847,7 +863,7 @@ class FCGIServer(object):
                 for header in responseHeaders:
                     s += '%s: %s\r\n' % header
                 s += '\r\n'
-                req.stdout.write(s.encode("utf-8"))
+                req.stdout.write(s.encode(FCGI_CONTENT_ENCODING))
 
             req.stdout.write(data)
             req.stdout.flush()
@@ -857,7 +873,7 @@ class FCGIServer(object):
                 try:
                     if headers_sent:
                         # Re-raise if too late
-                        raise exc_info[0].with_traceback(exc_info[2])
+                        raise_with_traceback(exc_info[0](exc_info[1]))
                 finally:
                     exc_info = None  # avoid dangling circular ref
             else:
@@ -945,7 +961,7 @@ class FCGIServer(object):
                 message = '%s: missing FastCGI param %s required by WSGI!\n' % (
                     self.__class__.__name__, name)
 
-                environ['wsgi.errors'].write(message.encode("utf-8"))
+                environ['wsgi.errors'].write(message.encode(FCGI_CONTENT_ENCODING))
                 environ[name] = default
 
     def error(self, req):
@@ -958,7 +974,7 @@ class FCGIServer(object):
 
             req.stdout.write(b'Status: 500 Internal Server Error\r\n' +
                              b'Content-Type: text/html\r\n\r\n' +
-                             cgitb.html(sys.exc_info()).encode("utf-8"))
+                             cgitb.html(sys.exc_info()).encode(FCGI_CONTENT_ENCODING))
         else:
             errorpage = b"""<!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML 2.0//EN">
 <html><head>
@@ -983,7 +999,7 @@ def example_application(environ, start_response):
         data += '%s: %s\n' % (e, environ[e])
     data += 'sys.version: ' + sys.version + '\n'
     start_response('200 OK', [('Content-Type', 'text/plain'), ('Content-Length', str(len(data)))])
-    yield data.encode("utf-8")
+    yield data.encode(FCGI_CONTENT_ENCODING)
 
 
 def run_example_app():
