@@ -902,7 +902,7 @@ class FCGIServer(object):
                         if data:
                             write(make_bytes(data))
                     if not headers_sent:
-                        write('')  # in case body was empty
+                        write(b'')  # in case body was empty
                 finally:
                     # if hasattr(result, 'close'):
                     #    result.close()
