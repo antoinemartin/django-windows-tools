@@ -28,7 +28,6 @@
 # OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
 # SUCH DAMAGE.
 #
-from future.utils import raise_with_traceback
 
 __author__ = 'Allan Saddi <allan@saddi.com>, Ruslan Keba <ruslan@helicontech.com>, Antoine Martin <antoine@openance.com>'
 
@@ -38,7 +37,6 @@ import os
 import os.path
 import logging
 import sys
-import traceback
 import datetime
 from optparse import OptionParser
 
@@ -873,7 +871,7 @@ class FCGIServer(object):
                 try:
                     if headers_sent:
                         # Re-raise if too late
-                        raise_with_traceback(exc_info[0](exc_info[1]))
+                        raise exc_info[0](exc_info[1]).with_traceback(exc_info[2])
                 finally:
                     exc_info = None  # avoid dangling circular ref
             else:

@@ -1,3 +1,2 @@
 django>=1.4
 pypiwin32
-future
