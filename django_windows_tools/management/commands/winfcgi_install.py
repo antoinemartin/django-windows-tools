@@ -26,7 +26,7 @@
 # OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
 # SUCH DAMAGE.
 #
-
+from __future__ import print_function
 __author__ = 'Antoine Martin <antoine@openance.com>'
 
 import os
@@ -197,7 +197,7 @@ directory !''')
             
         # create web.config
         if not options['skip_config']:
-            print "Creating web.config"
+            print("Creating web.config")
             template = get_template('windows_tools/iis/web.config')
             file = open(self.web_config, 'w')
             file.write(template.render(Context(self.__dict__)))
@@ -209,27 +209,27 @@ directory !''')
             
         # create FastCGI application
         if not options['skip_fastcgi']:
-            print "Creating FastCGI application"
+            print("Creating FastCGI application")
             if not self.create_fastcgi_section(options):
                 raise CommandError('The FastCGI application creation has failed with the following message :\n%s' % self.last_command_error)
             
         # Create sites
         if not options['skip_site']:
             site_name = options['site_name']
-            print "Creating application pool with name %s"  % site_name
+            print("Creating application pool with name %s"  % site_name)
             if not self.run_config_command('add', 'apppool', '/name:%s' % site_name):
                 raise CommandError('The Application Pool creation has failed with the following message :\n%s' % self.last_command_error)
                 
-            print "Creating the site"
+            print("Creating the site")
             if not self.run_config_command('add', 'site', '/name:%s' % site_name, '/bindings:%s' % options['binding'], '/physicalPath:%s' % self.install_dir):
                 raise CommandError('The site creation has failed with the following message :\n%s' % self.last_command_error)
             
-            print "Adding the site to the application pool"
+            print("Adding the site to the application pool")
             if not self.run_config_command('set', 'app', '%s/' % site_name, '/applicationPool:%s' % site_name):
                 raise CommandError('Adding the site to the application pool has failed with the following message :\n%s' % self.last_command_error)
             
             if static_is_local and static_needs_virtual_dir:
-                print "Creating virtual directory for [%s] in [%s]" % (static_dir, static_url)
+                print("Creating virtual directory for [%s] in [%s]" % (static_dir, static_url))
                 if not self.run_config_command('add', 'vdir', '/app.name:%s/' % site_name, '/path:/%s' % static_name, '/physicalPath:%s' % static_dir):
                     raise CommandError('Adding the static virtual directory has failed with the following message :\n%s' % self.last_command_error)
                 
@@ -239,21 +239,21 @@ directory !''')
             raise CommandError('A web site configuration does not exists in [%s] !' % self.install_dir)
 
         if not options['skip_config']:
-            print "Removing site configuration"
+            print("Removing site configuration")
             os.remove(self.web_config)
         
         if not options['skip_site']:
             site_name = options['site_name']
-            print "Removing The site"
+            print("Removing The site")
             if not self.run_config_command('delete', 'site', site_name):
                 raise CommandError('Removing the site has failed with the following message :\n%s' % self.last_command_error)
 
-            print "Removing The application pool"
+            print("Removing The application pool")
             if not self.run_config_command('delete', 'apppool', site_name):
                 raise CommandError('Removing the site has failed with the following message :\n%s' % self.last_command_error)
 
         if not options['skip_fastcgi']:
-            print "Removing FastCGI application"
+            print("Removing FastCGI application")
             if not self.delete_fastcgi_section():
                 raise CommandError('The FastCGI application removal has failed')
 
@@ -273,7 +273,7 @@ Please run it with the manage.py of the root directory of your project.
             
         self.install_dir = os.path.normcase(os.path.abspath(self.install_dir))
                 
-        print 'Using installation directory %s' % self.install_dir
+        print('Using installation directory %s' % self.install_dir)
         
         self.web_config = os.path.join(self.install_dir, 'web.config')
         
@@ -293,5 +293,5 @@ Please run it with the manage.py of the root directory of your project.
         
 
 if __name__ == '__main__':
-    print 'This is supposed to be run as a django management command'
+    print('This is supposed to be run as a django management command')
         

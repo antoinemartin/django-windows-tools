@@ -27,6 +27,7 @@
 # SUCH DAMAGE.
 #
 
+from __future__ import print_function
 __author__ = 'Antoine Martin <antoine@openance.com>'
 
 import os
@@ -136,7 +137,7 @@ class Command(BaseCommand):
         full_path = os.path.join(self.project_dir, filename)
         if os.path.exists(full_path) and not overwrite:
             raise CommandError('The file %s already exists !' % full_path)
-        print "Creating %s " % full_path
+        print("Creating %s " % full_path)
         template = get_template(template)
         file = open(full_path, 'w')
         file.write(template.render(Context(kwargs)))
@@ -185,5 +186,5 @@ Please run it with the manage.py of the root directory of your project.
             
 
 if __name__ == '__main__':
-    print 'This is supposed to be run as a django management command'
+    print('This is supposed to be run as a django management command')
         
