@@ -93,6 +93,10 @@ class Command(BaseCommand):
                     dest='idleTimeout',
                     default=1800,
                     help='Idle time in seconds after which a python process is recycled'),
+        make_option('--max-content-length',
+                    dest='maxContentLength',
+                    default=30000000,
+                    help='Maximum allowed request content length size'),
         make_option('--activity-timeout',
                     dest='activityTimeout',
                     default=30,
@@ -132,6 +136,10 @@ class Command(BaseCommand):
                     dest='skip_config',
                     default=False,
                     help='Skips The configuration creation'),
+        make_option('--log-dir',
+                    dest='log_dir',
+                    default='',
+                    help='Directory for IIS logfiles (defaults to %SystemDrive%\inetpub\logs\LogFiles)'),
     )
 
     def __init__(self, *args, **kwargs):
@@ -238,6 +246,18 @@ directory !''')
                                                '/physicalPath:%s' % static_dir):
                     raise CommandError(
                         'Adding the static virtual directory has failed with the following message :\n%s' % self.last_command_error)
+
+            log_dir = options['log_dir']
+            if log_dir:
+                if not self.run_config_command('set', 'site', '%s/' % site_name, '/logFile.directory:%s' % log_dir):
+                    raise CommandError(
+                        'Setting the logging directory has failed with the following message :\n%s' % self.last_command_error)
+
+            maxContentLength = options['maxContentLength']
+            if not self.run_config_command('set', 'config', '/section:requestfiltering',
+                                           '/requestlimits.maxallowedcontentlength:' + str(maxContentLength)):
+                raise CommandError(
+                    'Setting the maximum content length has failed with the following message :\n%s' % self.last_command_error)
 
     def delete(self, args, options):
         if not os.path.exists(self.web_config) and not options['skip_config']:
