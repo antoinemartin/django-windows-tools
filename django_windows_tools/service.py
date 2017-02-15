@@ -42,6 +42,11 @@ import ConfigParser
 import ctypes
 import traceback
 
+# is using virtualenv under Windows, the sys.exec_prefix used in forking is set the the base directory
+# of the virtual environment, not the Scripts subdirectory where the python executable resides
+if hasattr(sys, 'real_prefix') and sys.platform == 'win32':
+    sys.exec_prefix = os.path.join(sys.exec_prefix, 'Scripts')
+
 GenerateConsoleCtrlEvent = ctypes.windll.kernel32.GenerateConsoleCtrlEvent
 
 old_get_preparation_data = multiprocessing.forking.get_preparation_data
