@@ -89,42 +89,49 @@ class Command(BaseCommand):
       C:\project> python service.py remove        
     '''
         
-    option_list = BaseCommand.option_list + (
-        make_option('--service-name',
+    def add_arguments(self, parser):
+        parser.add_argument(
+            '--service-name',
             dest='service_name',
             default='django-%s-service',
-            help='Name of the service (takes the name of the project by default'),
-        make_option('--display-name',
+            help='Name of the service (takes the name of the project by default')
+        parser.add_argument(
+            '--display-name',
             dest='display_name',
             default='Django %s backround service',
-            help='Display name of the service'),
-        make_option('--service-script-name',
+            help='Display name of the service')
+        parser.add_argument(
+            '--service-script-name',
             dest='service_script_name',
             default='service.py',
-            help='Name of the service script (defaults to service.py)'),
-        make_option('--config-file-name',
+            help='Name of the service script (defaults to service.py)')
+        parser.add_argument(
+            '--config-file-name',
             dest='config_file_name',
             default='service.ini',
-            help='Name of the service configuration file (defaults to service.ini)'),
-        make_option('--log-directory',
+            help='Name of the service configuration file (defaults to service.ini)')
+        parser.add_argument(
+            '--log-directory',
             dest='log_directory',
             default='d:\logs',
-            help='Location for log files (d:\logs by default)'),            
-        make_option('--beat-machine',
+            help='Location for log files (d:\logs by default)')    
+        parser.add_argument(
+            '--beat-machine',
             dest='beat_machine',
             default='BEATSERVER',
-            help='Name of the machine that will run the Beat scheduler'),
-        make_option('--beat',
+            help='Name of the machine that will run the Beat scheduler')
+        parser.add_argument(
+            '--beat',
             action='store_true',
             dest='is_beat',
             default=False,
-            help='Use this machine as host for the beat scheduler'),
-        make_option('--overwrite',
+            help='Use this machine as host for the beat scheduler')
+        parser.add_argument(
+            '--overwrite',
             action='store_true',
             dest='overwrite',
             default=False,
-            help='Overwrite existing files'),
-    )
+            help='Overwrite existing files')
 
     def __init__(self, *args, **kwargs):
         super(Command, self).__init__(*args, **kwargs)
