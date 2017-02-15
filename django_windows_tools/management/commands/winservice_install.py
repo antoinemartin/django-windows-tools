@@ -28,6 +28,7 @@
 #
 
 from __future__ import print_function
+
 __author__ = 'Antoine Martin <antoine@openance.com>'
 
 import os
@@ -46,7 +47,6 @@ from optparse import make_option
 import subprocess
 
 
-
 def set_file_readable(filename):
     import win32api
     import win32security
@@ -54,21 +54,21 @@ def set_file_readable(filename):
 
     users = win32security.ConvertStringSidToSid("S-1-5-32-545")
     admins = win32security.ConvertStringSidToSid("S-1-5-32-544")
-    user, domain, type = win32security.LookupAccountName ("", win32api.GetUserName ())
+    user, domain, type = win32security.LookupAccountName("", win32api.GetUserName())
 
-    sd = win32security.GetFileSecurity (filename, win32security.DACL_SECURITY_INFORMATION)
+    sd = win32security.GetFileSecurity(filename, win32security.DACL_SECURITY_INFORMATION)
 
-    dacl = win32security.ACL ()
-    dacl.AddAccessAllowedAce (win32security.ACL_REVISION, con.FILE_ALL_ACCESS, users)
-    dacl.AddAccessAllowedAce (win32security.ACL_REVISION, con.FILE_ALL_ACCESS, user)
-    dacl.AddAccessAllowedAce (win32security.ACL_REVISION, con.FILE_ALL_ACCESS, admins)
-    sd.SetSecurityDescriptorDacl (1, dacl, 0)
-    win32security.SetFileSecurity (filename, win32security.DACL_SECURITY_INFORMATION, sd)
-    
+    dacl = win32security.ACL()
+    dacl.AddAccessAllowedAce(win32security.ACL_REVISION, con.FILE_ALL_ACCESS, users)
+    dacl.AddAccessAllowedAce(win32security.ACL_REVISION, con.FILE_ALL_ACCESS, user)
+    dacl.AddAccessAllowedAce(win32security.ACL_REVISION, con.FILE_ALL_ACCESS, admins)
+    sd.SetSecurityDescriptorDacl(1, dacl, 0)
+    win32security.SetFileSecurity(filename, win32security.DACL_SECURITY_INFORMATION, sd)
+
 
 class Command(BaseCommand):
     args = ''
-    help = '''Creates a NT Service that runs Django commands.
+    help = '''Creates an NT Service that runs Django commands.
 
     This command creates a service.py script and a service.ini
     configuration file at the same level that the manage.py command.
@@ -88,7 +88,7 @@ class Command(BaseCommand):
       C:\project> python service.py stop
       C:\project> python service.py remove        
     '''
-        
+
     def add_arguments(self, parser):
         parser.add_argument(
             '--service-name',
@@ -98,7 +98,7 @@ class Command(BaseCommand):
         parser.add_argument(
             '--display-name',
             dest='display_name',
-            default='Django %s backround service',
+            default='Django %s background service',
             help='Display name of the service')
         parser.add_argument(
             '--service-script-name',
@@ -113,8 +113,8 @@ class Command(BaseCommand):
         parser.add_argument(
             '--log-directory',
             dest='log_directory',
-            default='d:\logs',
-            help='Location for log files (d:\logs by default)')    
+            default=r'd:\logs',
+            help=r'Location for log files (d:\logs by default)')
         parser.add_argument(
             '--beat-machine',
             dest='beat_machine',
@@ -138,8 +138,7 @@ class Command(BaseCommand):
         self.current_script = os.path.abspath(sys.argv[0])
         self.project_dir, self.script_name = os.path.split(self.current_script)
         self.project_name = os.path.split(self.project_dir)[1]
-        
-        
+
     def install_template(self, template, filename, overwrite=False, **kwargs):
         full_path = os.path.join(self.project_dir, filename)
         if os.path.exists(full_path) and not overwrite:
@@ -148,50 +147,48 @@ class Command(BaseCommand):
         template = get_template(template)
         file = open(full_path, 'w')
         file.write(template.render(Context(kwargs)))
-        file.close()            
+        file.close()
         set_file_readable(full_path)
-    
+
     def handle(self, *args, **options):
         if self.script_name == 'django-admin.py':
             raise CommandError("""\
 This command does not work when used with django-admin.py.
 Please run it with the manage.py of the root directory of your project.
 """)
-            
+
         if "%s" in options['service_name']:
-            options['service_name'] =  options['service_name'] % self.project_name
-            
+            options['service_name'] = options['service_name'] % self.project_name
+
         if "%s" in options['display_name']:
-            options['display_name'] =  options['display_name'] % self.project_name
+            options['display_name'] = options['display_name'] % self.project_name
 
         self.install_template(
             'windows_tools/service/service.py',
             options['service_script_name'],
             options['overwrite'],
-            service_name = options['service_name'],
-            display_name = options['display_name'],
-            config_file_name = options['config_file_name'],
-            settings_module = os.environ['DJANGO_SETTINGS_MODULE'],
+            service_name=options['service_name'],
+            display_name=options['display_name'],
+            config_file_name=options['config_file_name'],
+            settings_module=os.environ['DJANGO_SETTINGS_MODULE'],
         )
-        
+
         if options['is_beat']:
             options['beat_machine'] = platform.node()
-            
+
         if options['log_directory'][-1:] == '\\':
             options['log_directory'] = options['log_directory'][0:-1]
-            
+
         self.install_template(
             'windows_tools/service/service.ini',
             options['config_file_name'],
             options['overwrite'],
-            log_directory = options['log_directory'],
-            beat_machine = options['beat_machine'],
-            config_file_name = options['config_file_name'],
-            settings_module = os.environ['DJANGO_SETTINGS_MODULE'],
+            log_directory=options['log_directory'],
+            beat_machine=options['beat_machine'],
+            config_file_name=options['config_file_name'],
+            settings_module=os.environ['DJANGO_SETTINGS_MODULE'],
         )
-            
-            
+
 
 if __name__ == '__main__':
     print('This is supposed to be run as a django management command')
-        
