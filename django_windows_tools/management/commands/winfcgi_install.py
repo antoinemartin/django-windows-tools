@@ -34,9 +34,7 @@ import sys
 import re
 from django.core.management.base import BaseCommand, CommandError
 from django.template.loader import get_template
-from django.template import Context
 from django.conf import settings
-from optparse import make_option
 import subprocess
 
 __author__ = 'Antoine Martin <antoine@openance.com>'
@@ -79,68 +77,81 @@ class Command(BaseCommand):
 
     FASTCGI_SECTION = 'system.webServer/fastCgi'
 
-    option_list = BaseCommand.option_list + (
-        make_option('--delete',
-                    action='store_true',
-                    dest='delete',
-                    default=False,
-                    help='Deletes the configuration instead of creating it'),
-        make_option('--max-instances',
-                    dest='maxInstances',
-                    default=4,
-                    help='Maximum number of pyhton processes'),
-        make_option('--idle-timeout',
-                    dest='idleTimeout',
-                    default=1800,
-                    help='Idle time in seconds after which a python process is recycled'),
-        make_option('--max-content-length',
-                    dest='maxContentLength',
-                    default=30000000,
-                    help='Maximum allowed request content length size'),
-        make_option('--activity-timeout',
-                    dest='activityTimeout',
-                    default=30,
-                    help='Number of seconds without data transfer after which a process is stopped'),
-        make_option('--request-timeout',
-                    dest='requestTimeout',
-                    default=90,
-                    help='Total time in seconds for a request'),
-        make_option('--instance-max-requests',
-                    dest='instanceMaxRequests',
-                    default=10000,
-                    help='Number of requests after which a python process is recycled'),
-        make_option('--monitor-changes-to',
-                    dest='monitorChangesTo',
-                    default='',
-                    help='Application is restarted when this file changes'),
-        make_option('--site-name',
-                    dest='site_name',
-                    default='',
-                    help='IIS site name (defaults to name of installation directory)'),
-        make_option('--binding',
-                    dest='binding',
-                    default='http://*:80',
-                    help='IIS site binding. Defaults to http://*:80'),
-        make_option('--skip-fastcgi',
-                    action='store_true',
-                    dest='skip_fastcgi',
-                    default=False,
-                    help='Skips the FastCGI application installation'),
-        make_option('--skip-site',
-                    action='store_true',
-                    dest='skip_site',
-                    default=False,
-                    help='Skips the site creation'),
-        make_option('--skip-config',
-                    action='store_true',
-                    dest='skip_config',
-                    default=False,
-                    help='Skips the configuration creation'),
-        make_option('--log-dir',
-                    dest='log_dir',
-                    default='',
-                    help=r'Directory for IIS logfiles (defaults to %SystemDrive%\inetpub\logs\LogFiles)'),
-    )
+    def add_arguments(self, parser):
+        parser.add_argument(
+            '--delete',
+            action='store_true',
+            dest='delete',
+            default=False,
+            help='Deletes the configuration instead of creating it')
+        parser.add_argument(
+            '--max-instances',
+            dest='maxInstances',
+            default=4,
+            help='Maximum number of pyhton processes')
+        parser.add_argument(
+            '--idle-timeout',
+            dest='idleTimeout',
+            default=1800,
+            help='Idle time in seconds after which a python process is recycled')
+        parser.add_argument(
+            '--max-content-length',
+            dest='maxContentLength',
+            default=30000000,
+            help='Maximum allowed request content length size')
+        parser.add_argument(
+            '--activity-timeout',
+            dest='activityTimeout',
+            default=30,
+            help='Number of seconds without data transfer after which a process is stopped')
+        parser.add_argument(
+            '--request-timeout',
+            dest='requestTimeout',
+            default=90,
+            help='Total time in seconds for a request')
+        parser.add_argument(
+            '--instance-max-requests',
+            dest='instanceMaxRequests',
+            default=10000,
+            help='Number of requests after which a python process is recycled')
+        parser.add_argument(
+            '--monitor-changes-to',
+            dest='monitorChangesTo',
+            default='',
+            help='Application is restarted when this file changes')
+        parser.add_argument(
+            '--site-name',
+            dest='site_name',
+            default='',
+            help='IIS site name (defaults to name of installation directory)')
+        parser.add_argument(
+            '--binding',
+            dest='binding',
+            default='http://*:80',
+            help='IIS site binding. Defaults to http://*:80')
+        parser.add_argument(
+            '--skip-fastcgi',
+            action='store_true',
+            dest='skip_fastcgi',
+            default=False,
+            help='Skips the FastCGI application installation')
+        parser.add_argument(
+            '--skip-site',
+            action='store_true',
+            dest='skip_site',
+            default=False,
+            help='Skips the site creation')
+        parser.add_argument(
+            '--skip-config',
+            action='store_true',
+            dest='skip_config',
+            default=False,
+            help='Skips the configuration creation')
+        parser.add_argument(
+            '--log-dir',
+            dest='log_dir',
+            default='',
+            help=r'Directory for IIS logfiles (defaults to %SystemDrive%\inetpub\logs\LogFiles)')
 
     def __init__(self, *args, **kwargs):
         super(Command, self).__init__(*args, **kwargs)
@@ -207,7 +218,7 @@ directory !''')
             print("Creating web.config")
             template = get_template('windows_tools/iis/web.config')
             file = open(self.web_config, 'w')
-            file.write(template.render(Context(self.__dict__)))
+            file.write(template.render(self.__dict__))
             file.close()
             set_file_readable(self.web_config)
 
