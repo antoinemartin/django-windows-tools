@@ -464,11 +464,7 @@ class Record(object):
 
     def read(self, stream):
         """Read and decode a Record from a socket."""
-        try:
-            header, length = self._recvall(stream, FCGI_HEADER_LEN)
-        except:
-            raise
-            raise EOFError
+        header, length = self._recvall(stream, FCGI_HEADER_LEN)
 
         if length < FCGI_HEADER_LEN:
             raise EOFError

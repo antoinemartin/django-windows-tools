@@ -32,19 +32,10 @@ from __future__ import print_function
 __author__ = 'Antoine Martin <antoine@openance.com>'
 
 import os
-import os.path
-import logging
 import sys
-import re
-import stat
 import platform
-from optparse import OptionParser
 from django.core.management.base import BaseCommand, CommandError
 from django.template.loader import get_template
-from django.template import Context
-from django.conf import settings
-from optparse import make_option
-import subprocess
 
 
 def set_file_readable(filename):
@@ -139,14 +130,14 @@ class Command(BaseCommand):
         self.project_dir, self.script_name = os.path.split(self.current_script)
         self.project_name = os.path.split(self.project_dir)[1]
 
-    def install_template(self, template, filename, overwrite=False, **kwargs):
+    def install_template(self, template_name, filename, overwrite=False, **kwargs):
         full_path = os.path.join(self.project_dir, filename)
         if os.path.exists(full_path) and not overwrite:
             raise CommandError('The file %s already exists !' % full_path)
         print("Creating %s " % full_path)
-        template = get_template(template)
+        template = get_template(template_name)
         file = open(full_path, 'w')
-        file.write(template.render(Context(kwargs)))
+        file.write(template.render(kwargs))
         file.close()
         set_file_readable(full_path)
 
