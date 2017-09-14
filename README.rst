@@ -8,7 +8,15 @@ It provides management commands allowing to:
 - Host a Django application behind IIS as a FastCGI application (requires IIS 7 and Up).
 - Run Celery and Celery Beat background processes as a Windows Service.
 
-It requires Django 1.4 and pywin32.
+It requires Django >= 1.4 and pywin32.
+
+Compatibility notes
+-------------------
+
+- django-windows-tools 0.1.3 is the last version to work with Django <= 1.7
+- the ``win_fcgi`` part is known to work with Django versions up to 1.11 and Python 3.6 (django-windows-tools 0.2 needed), and works with IIS up to version 10
+- installing services with newer versions of Django and Python 3 is not tested and may not work (see also the open issues)
+- newer Celery versions cannot be installed as a service as described (see #19)
 
 The following gives a Quick overview of the project. For more information, please
 read the `Project documentation <http://django-windows-tools.readthedocs.org>`_.

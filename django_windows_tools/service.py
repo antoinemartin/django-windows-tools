@@ -45,8 +45,9 @@ try:
 except ImportError:
     import configparser as ConfigParser
 
-# is using virtualenv under Windows, the sys.exec_prefix used in forking is set the the base directory
-# of the virtual environment, not the Scripts subdirectory where the python executable resides
+# if using virtualenv under Windows, the sys.exec_prefix used in forking is
+# set to the base directory of the virtual environment, not to the Scripts
+# subdirectory where the python executable resides
 if hasattr(sys, 'real_prefix') and sys.platform == 'win32':
     sys.exec_prefix = os.path.join(sys.exec_prefix, 'Scripts')
 
@@ -60,7 +61,7 @@ except ImportError:
     main_path_key = 'init_main_from_path'
 
 # Monkey patch the Windows Process implementation to avoid thinking
-# That 'PythonService.exe' is a python script
+# that 'PythonService.exe' is a python script
 old_get_preparation_data = forking.get_preparation_data
 
 
