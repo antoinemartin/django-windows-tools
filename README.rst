@@ -83,7 +83,7 @@ Running Celery or other Background commands as a Windows Service
 
 With the application installed, on the root of your project, type the following command: ::
 
-  D:\sites\mydjangoapp> python winservice_install
+  D:\sites\mydjangoapp> python manage.py winservice_install
   
 It will create two files, ``service.py`` and ``service.ini`` in the 
 root directory of your project. The first one will help you install,
@@ -181,4 +181,4 @@ The ``winservice_install`` management command provides several options
 allowing to customize the name of the web service or of the script name.
 To obtain information about them, type: ::
 
-  D:\sites\mydjangoapp> python help winservice_install
+  D:\sites\mydjangoapp> python manage.py help winservice_install
