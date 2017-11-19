@@ -797,7 +797,7 @@ class FCGIServer(object):
     def run(self):
         msvcrt.setmode(sys.stdin.fileno(), os.O_BINARY)
         stdin = os.fdopen(sys.stdin.fileno(), 'rb', 0)
-        stdout = os.fdopen(sys.stdin.fileno(), 'wb', 0)
+        stdout = os.fdopen(sys.stdout.fileno(), 'wb', 0)
 
         conn = Connection(stdin, stdout, self)
         try:
