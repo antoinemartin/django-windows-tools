@@ -83,19 +83,21 @@ except ImportError:
     try:
         import billiard.spawn as billiard_forking
         main_path_key = 'init_main_from_path'
-
-        billiard_old_get_preparation_data = billiard_forking.get_preparation_data
-
-        def billiard_new_get_preparation_data(name):
-            d = billiard_old_get_preparation_data(name)
-            if main_path_key in d and d[main_path_key].lower().endswith('.exe'):
-                # del d['main_path']
-                d[main_path_key] = '__main__.py'
-            return d
-
-        billiard_forking.get_preparation_data = billiard_new_get_preparation_data
-    except:
+    except ImportError:
         pass
+
+try:
+    billiard_old_get_preparation_data = billiard_forking.get_preparation_data
+
+    def billiard_new_get_preparation_data(name):
+        d = billiard_old_get_preparation_data(name)
+        if main_path_key in d and d[main_path_key].lower().endswith('.exe'):
+            d[main_path_key] = '__main__.py'
+        return d
+
+    billiard_forking.get_preparation_data = billiard_new_get_preparation_data
+except:
+    pass
 
 
 def log(msg):
