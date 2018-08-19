@@ -73,7 +73,7 @@ To remove the site created with the preceding command, type: ::
 
 the ``winfcgi_install`` command provides numerous options. To list them, type: ::
 
-  D:\sites\mydjangoapp> python help winfcgi_install
+  D:\sites\mydjangoapp> python manage.py help winfcgi_install
     
 More information on how the configuration is done is provided in 
 this `Blog post <http://mrtn.me/blog/2012/06/27/running-django-under-windows-with-iis-using-fcgi/>`_.
