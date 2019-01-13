@@ -1,12 +1,15 @@
 Django-windows-tools
 ====================
 
-django-windows-tools is a Django application providing management commands to host Django projects in Windows environments.
+django-windows-tools is a Django application providing management commands
+to host Django projects in Windows environments.
 
 It provides management commands allowing to:
 
-- Host a Django application behind IIS as a FastCGI application (requires IIS 7 and Up).
-- Run Celery and Celery Beat background processes as a Windows Service.
+- host a Django application behind IIS as a FastCGI application (requires
+  IIS 7 or newer)
+- run Celery and Celery Beat background processes as a Windows Service (does
+  not work with current Celery versions, see compatibility notes below)
 
 It requires Django >= 1.4 and pywin32.
 
@@ -14,9 +17,13 @@ Compatibility notes
 -------------------
 
 - django-windows-tools 0.1.3 is the last version to work with Django <= 1.7
-- the ``win_fcgi`` part is known to work with Django versions up to 1.11 and Python 3.6 (django-windows-tools 0.2 needed), and works with IIS up to version 10
-- installing services with newer versions of Django and Python 3 is not tested and may not work (see also the open issues)
-- newer Celery versions cannot be installed as a service as described (see #19)
+- the ``win_fcgi`` part is known to work with Django versions up to 1.11 and
+  Python 3.7 (django-windows-tools 0.2 needed), and works with IIS up to
+  version 10
+- installing services with newer versions of Django and Python 3 is not tested
+  and may not work (see also the open issues)
+- newer Celery versions cannot be installed as a service as described (see
+  #19 for running Celery as a scheduled task instead)
 
 The following gives a Quick overview of the project. For more information, please
 read the `Project documentation <http://django-windows-tools.readthedocs.org>`_.
@@ -27,10 +34,6 @@ Installation and Configuration
 You install the application with the command: ::
 
     pip install django-windows-tools
-
-Or you may install the latest development version for more fixed bugs: ::
-
-    pip install git+https://github.com/antoinemartin/django-windows-tools@master
 
 Enable the ``django_windows_tools`` application to be able to use the management commands. Add the app to
 the project's list in ``settings.py``: ::
