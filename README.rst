@@ -1,7 +1,13 @@
 Django-windows-tools
 ====================
 
-django-windows-tools is a Django application providing management commands
+.. warning::
+  This package is no longer maintained - use it at your own risk.
+  The package has been tested against versions of django, Celery and IIS that
+  are outdated today, and may not work with newer versions.
+
+
+`django-windows-tools` is a Django application providing management commands
 to host Django projects in Windows environments.
 
 It provides management commands allowing to:
@@ -16,7 +22,7 @@ It requires Django >= 1.4 and pywin32.
 Compatibility notes
 -------------------
 
-- django-windows-tools 0.1.3 is the last version to work with Django <= 1.7
+- `django-windows-tools` 0.1.3 is the last version to work with Django <= 1.7
 - the ``win_fcgi`` part is known to work with Django versions up to 1.11 and
   Python 3.7 (django-windows-tools 0.2 needed), and works with IIS up to
   version 10
